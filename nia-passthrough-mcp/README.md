@@ -38,7 +38,7 @@ Edit **`.env`**:
 | `CACHE_API_URL` | No | Person 2 cache base URL. Default `http://localhost:8000`. |
 | `WS_PORT` | No | WebSocket dashboard port. Default `8001`. |
 | `NIA_MCP_PACKAGE` | No | Legacy: set to e.g. `nia-codebase-mcp@1.0.2` to use **npx** instead of **pipx** `nia-mcp-server`. Use **`NIA_API_KEY`** in `.env` / environment (default: not passed on the command line). |
-| `NIA_LEGACY_CLI_API_KEY` | No | If `1` / `true` / `yes`, legacy **npx** also passes `--api-key` (only if the package ignores `NIA_API_KEY` in env; **less secure**, visible in `ps` / Task Manager). |
+| `NIA_LEGACY_CLI_API_KEY` | No | Rare: set to `1` / `true` / `yes` to add `--api-key` for legacy **npx** (key visible in `ps`). Official **`nia-codebase-mcp`** already uses `NIA_API_KEY` from env when the flag is omitted. |
 | `NIA_TOOL_TIMEOUT_MS` | No | Timeout for each Nia tool call (ms). Default `300000`. |
 | `NIA_MCP_CONNECT_TIMEOUT_MS` | No | MCP `initialize` to the Nia child (ms). Default `300000`. Raise if cold `pipx` install is slow. |
 | `CACHE_LOOKUP_TIMEOUT_MS` | No | `POST /lookup` timeout (ms). Default `8000`. |
@@ -87,6 +87,7 @@ On Windows, the path is **`%USERPROFILE%\.cursor\mcp.json`**.
 | `NIA_API_KEY` missing | Set it in `.env` next to this package or export it before launching Cursor. |
 | `MCP error -32000: Connection closed` on startup | Install **pipx** and ensure `pipx run nia-mcp-server` works; on Windows see TryNia “Windows Configuration”. Legacy: set `NIA_MCP_PACKAGE` to use npx. |
 | `MCP error -32001: Request timed out` on startup | Often **pipx** still installing on first run (MCP defaults to 60s). This gateway uses **5m** by default; increase `NIA_MCP_CONNECT_TIMEOUT_MS` or run `pipx run --no-cache nia-mcp-server` once to warm the venv. |
+| Legacy **`NIA_MCP_PACKAGE`** — worried auth is broken without `--api-key` | **`nia-codebase-mcp`** uses **`--api-key` or `NIA_API_KEY`** (either works). This gateway sets **`NIA_API_KEY`** in the child env only. Use **`NIA_LEGACY_CLI_API_KEY=1`** only if you run a fork that ignores env. |
 | `EADDRINUSE` on port 8001 | Change `WS_PORT` in `.env` and point Person 3 at the same port. |
 | Cursor still on old MCP name | Run `npm run mcp:install` again; old `nia-cache-gateway` entry was removed when migrating to **`cache-wrapped-nia`**. |
 

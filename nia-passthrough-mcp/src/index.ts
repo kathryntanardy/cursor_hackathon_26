@@ -196,8 +196,9 @@ function niaChildSpawnConfig(apiKey: string): {
     args.push("--transport=stdio");
     return {
       command: npx,
-      // Default: NIA_API_KEY in env only (not visible in argv). Some nia-codebase-mcp builds
-      // only read --api-key; set NIA_LEGACY_CLI_API_KEY=1 if lookups fail with no other errors.
+      // Upstream nia-codebase-mcp resolves key as CLI --api-key OR process.env.NIA_API_KEY
+      // (see parseArgs + main in that package). Omitting --api-key avoids argv leakage; baseEnv
+      // still sets NIA_API_KEY. NIA_LEGACY_CLI_API_KEY=1 opts back into --api-key for odd forks.
       args,
       env: baseEnv,
     };
