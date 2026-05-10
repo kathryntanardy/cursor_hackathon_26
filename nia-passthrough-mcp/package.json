@@ -1,0 +1,28 @@
+{
+  "name": "nia-passthrough-mcp",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Person 1: MCP wrapper that forwards lookup_codebase_context to nia-codebase-mcp (cache + WS in later phases).",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts",
+    "mcp:install": "node scripts/install-mcp-config.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.29.0",
+    "dotenv": "^16.6.1",
+    "ws": "^8.20.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.2",
+    "@types/ws": "^8.18.1",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.3"
+  }
+}

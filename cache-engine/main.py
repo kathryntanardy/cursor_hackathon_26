@@ -54,7 +54,7 @@ class MetricsResponse(BaseModel):
 
 class CacheEngine:
     EXACT_THRESHOLD = 0.97
-    SEMANTIC_FLOOR  = 0.70
+    SEMANTIC_FLOOR  = 0.80
 
     def __init__(
         self,
@@ -200,13 +200,11 @@ async def lifespan(app: FastAPI):
     ef(["warmup query to load tokenizer and model weights"])
     logger.info(f"ChromaDB ready at {db_path} — {collection.count()} entries loaded")
 
-    clod_api_key = os.environ.get("CLOD_API_KEY")
-    verifier_model = os.environ.get("CLOD_VERIFIER_MODEL", "Llama 3.1 8B")
-
     clod_client = OpenAI(
         base_url="https://api.clod.io/v1",
-        api_key=clod_api_key,
+        api_key=os.environ["CLOD_API_KEY"],
     )
+    verifier_model = os.getenv("CLOD_VERIFIER_MODEL", "Llama 3.1 8B")
     cache_engine = CacheEngine(
         chroma_client, collection, clod_client, verifier_model=verifier_model
     )
@@ -248,18 +246,3 @@ async def reset():
 @app.get("/metrics", response_model=MetricsResponse)
 async def metrics():
     return MetricsResponse(**cache_engine.stats)
-
-
-@app.post("/debug_similarity")
-async def debug_similarity(req: LookupRequest):
-    if cache_engine._col.count() == 0:
-        return {"similarity": None, "matched": None}
-    results = cache_engine._col.query(
-        query_texts=[req.query],
-        n_results=1,
-        include=["documents", "distances"],
-    )
-    return {
-        "similarity": round(1.0 - results["distances"][0][0], 4),
-        "matched": results["documents"][0][0],
-    }
