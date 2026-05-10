@@ -1,2 +1,4 @@
 */node_modules
 nia-passthrough-mcp/.env
+nia-passthrough-mcp/dist/
+nia-passthrough-mcp/*.log
