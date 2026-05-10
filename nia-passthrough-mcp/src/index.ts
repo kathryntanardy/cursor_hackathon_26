@@ -178,7 +178,7 @@ function npxNiaSpawnConfig(
     process.env.NIA_COMMAND?.trim() ||
     (process.platform === "win32" ? "npx.cmd" : "npx");
   const args: string[] = ["-y", pkg];
-  if (/^1|true|yes$/i.test(process.env.NIA_LEGACY_CLI_API_KEY?.trim() ?? "")) {
+  if (/^(?:1|true|yes)$/i.test(process.env.NIA_LEGACY_CLI_API_KEY?.trim() ?? "")) {
     args.push(`--api-key=${apiKey}`);
   }
   args.push("--transport=stdio");
@@ -214,7 +214,7 @@ function niaChildSpawnConfig(apiKey: string): {
   // OSError [Errno 22] on stdout (anyio). Default to Node nia-codebase-mcp via npx unless opted in.
   const winUsePipx =
     process.platform === "win32" &&
-    /^1|true|yes$/i.test(process.env.NIA_WINDOWS_USE_PIPX?.trim() ?? "");
+    /^(?:1|true|yes)$/i.test(process.env.NIA_WINDOWS_USE_PIPX?.trim() ?? "");
   if (process.platform === "win32" && !winUsePipx) {
     const pkg = process.env.NIA_NPX_PACKAGE?.trim() || "nia-codebase-mcp@latest";
     return npxNiaSpawnConfig(pkg, apiKey, baseEnv);

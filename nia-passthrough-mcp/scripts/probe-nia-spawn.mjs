@@ -25,7 +25,7 @@ const niaApiUrl =
 const legacyPkg = process.env.NIA_MCP_PACKAGE?.trim();
 const winUsePipx =
   process.platform === "win32" &&
-  /^1|true|yes$/i.test(process.env.NIA_WINDOWS_USE_PIPX?.trim() ?? "");
+  /^(?:1|true|yes)$/i.test(process.env.NIA_WINDOWS_USE_PIPX?.trim() ?? "");
 
 /** @type {{ command: string; args: string[]; env: NodeJS.ProcessEnv }} */
 let cfg;
@@ -37,7 +37,7 @@ if (legacyPkg) {
     process.env.NIA_COMMAND?.trim() ||
     (process.platform === "win32" ? "npx.cmd" : "npx");
   const args = ["-y", legacyPkg];
-  if (/^1|true|yes$/i.test(process.env.NIA_LEGACY_CLI_API_KEY?.trim() ?? "")) {
+  if (/^(?:1|true|yes)$/i.test(process.env.NIA_LEGACY_CLI_API_KEY?.trim() ?? "")) {
     args.push(`--api-key=${apiKey}`);
   }
   args.push("--transport=stdio");
@@ -51,7 +51,7 @@ if (legacyPkg) {
   const cmd = process.env.NIA_COMMAND?.trim() || "npx.cmd";
   const pkg = process.env.NIA_NPX_PACKAGE?.trim() || "nia-codebase-mcp@latest";
   const args = ["-y", pkg];
-  if (/^1|true|yes$/i.test(process.env.NIA_LEGACY_CLI_API_KEY?.trim() ?? "")) {
+  if (/^(?:1|true|yes)$/i.test(process.env.NIA_LEGACY_CLI_API_KEY?.trim() ?? "")) {
     args.push(`--api-key=${apiKey}`);
   }
   args.push("--transport=stdio");
