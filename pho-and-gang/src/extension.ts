@@ -235,7 +235,6 @@ function App() {
   });
   const [connected, setConnected] = useState(false);
   const wsRef = useRef(null);
-  const logsEndRef = useRef(null);
 
   const connect = useCallback(() => {
     const ws = new WebSocket('ws://localhost:8001');
