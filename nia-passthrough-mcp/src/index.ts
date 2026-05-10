@@ -377,24 +377,41 @@ function failOpenNiaPayload(reason: string): CachedResponse {
 
 async function forwardLookupFromNia(niaClient: Client, user_query: string): Promise<CachedResponse> {
   const niaTimeoutMs = Number.parseInt(process.env.NIA_TOOL_TIMEOUT_MS ?? "300000", 10);
-  const resUnknown: UnknownToolResult = (await niaClient.callTool(
-    {
-      name: NIA_TOOL,
-      arguments: { user_query },
-    },
-    undefined,
-    { timeout: niaTimeoutMs },
-  )) as UnknownToolResult;
 
-  if (resUnknown.isError) {
-    let errText = "nia tool reported isError=true";
-    const first = Array.isArray(resUnknown.content) ? resUnknown.content[0] : undefined;
+  async function callNiaTool(toolName: string, args: Record<string, unknown>): Promise<UnknownToolResult> {
+    return (await niaClient.callTool({ name: toolName, arguments: args }, undefined, { timeout: niaTimeoutMs })) as UnknownToolResult;
+  }
+
+  function extractError(res: UnknownToolResult): string | null {
+    if (!res.isError) return null;
+    const first = Array.isArray(res.content) ? res.content[0] : undefined;
     if (first && typeof first === "object" && "type" in first && (first as { type: unknown }).type === "text") {
       const text = (first as { text?: unknown }).text;
-      if (typeof text === "string") errText = text;
+      if (typeof text === "string") return text;
     }
-    throw new Error(errText);
+    return "nia tool reported isError=true";
   }
+
+  let resUnknown = await callNiaTool(NIA_TOOL, { user_query });
+  const primaryErr = extractError(resUnknown);
+
+  // Fallback: if lookup_codebase_context is not available (Python nia-mcp-server uses `search`),
+  // retry with the `search` tool using NIA_FOLDER_ID if provided.
+  if (primaryErr && (primaryErr.includes("Unknown tool") || primaryErr.includes("not found"))) {
+    const folderId = process.env.NIA_FOLDER_ID?.trim();
+    if (folderId) {
+      console.error(`[cache-wrapped-nia] ${NIA_TOOL} unavailable — retrying with search tool (NIA_FOLDER_ID=${folderId})`);
+      const fallbackArgs: Record<string, unknown> = { query: user_query, local_folders: [folderId] };
+      const fallbackRes = await callNiaTool("search", fallbackArgs);
+      const fallbackErr = extractError(fallbackRes);
+      if (fallbackErr) throw new Error(fallbackErr);
+      const text = extractTextBlocks(fallbackRes);
+      return parseNiaPlaintextResponse(text);
+    }
+    throw new Error(primaryErr);
+  }
+
+  if (primaryErr) throw new Error(primaryErr);
 
   let text = extractTextBlocks(resUnknown);
   if ("structuredContent" in resUnknown && resUnknown.structuredContent && typeof resUnknown.structuredContent === "object") {

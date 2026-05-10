@@ -3,7 +3,12 @@ import os
 import time
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Literal, Optional
+
+from dotenv import load_dotenv
+
+load_dotenv(Path(__file__).parent / ".env")
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -200,11 +205,13 @@ async def lifespan(app: FastAPI):
     ef(["warmup query to load tokenizer and model weights"])
     logger.info(f"ChromaDB ready at {db_path} — {collection.count()} entries loaded")
 
+    clod_api_key = os.environ.get("CLOD_API_KEY")
+    verifier_model = os.environ.get("CLOD_VERIFIER_MODEL", "Llama 3.1 8B")
+
     clod_client = OpenAI(
         base_url="https://api.clod.io/v1",
-        api_key=os.environ["CLOD_API_KEY"],
+        api_key=clod_api_key,
     )
-    verifier_model = os.getenv("CLOD_VERIFIER_MODEL", "Llama 3.1 8B")
     cache_engine = CacheEngine(
         chroma_client, collection, clod_client, verifier_model=verifier_model
     )

@@ -6,3 +6,4 @@ nia-passthrough-mcp/*.log
 **/__pycache__
 **/*.pyc
 cache-engine/.env
+cache-engine/chroma_data/
