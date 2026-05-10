@@ -26,7 +26,7 @@ if (legacyPkg) {
     (process.platform === "win32" ? "npx.cmd" : "npx");
   cfg = {
     command: cmd,
-    args: ["-y", legacyPkg, `--api-key=${apiKey}`, "--transport=stdio"],
+    args: ["-y", legacyPkg, "--transport=stdio"],
     env: { ...process.env, NIA_API_KEY: apiKey, NIA_API_URL: niaApiUrl },
   };
 } else if (process.platform === "win32") {

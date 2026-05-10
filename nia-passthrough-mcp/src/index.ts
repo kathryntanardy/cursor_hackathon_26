@@ -190,7 +190,8 @@ function niaChildSpawnConfig(apiKey: string): {
       (process.platform === "win32" ? "npx.cmd" : "npx");
     return {
       command: npx,
-      args: ["-y", legacyPkg, `--api-key=${apiKey}`, "--transport=stdio"],
+      // Auth via NIA_API_KEY in env only — avoid passing secrets in argv (visible in `ps` / tasklist).
+      args: ["-y", legacyPkg, "--transport=stdio"],
       env: baseEnv,
     };
   }
