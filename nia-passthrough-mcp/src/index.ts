@@ -7,6 +7,7 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
@@ -208,6 +209,10 @@ function npxNiaSpawnConfig(
   if (!forceNpx && pkg === BUNDLED_NIA_CODEBASE_ARG) {
     const cli = bundledNiaCodebaseMcpCliJs();
     if (cli) {
+      // Windows: spawn via launcher so nia-codebase-mcp's argv[1] guard matches import.meta.url
+      // (see scripts/nia-bundled-launch.mjs).
+      const launcher = path.join(gatewayPackageRoot(), "scripts", "nia-bundled-launch.mjs");
+      const useLauncher = process.platform === "win32" && fs.existsSync(launcher);
       const args: string[] = [];
       if (cliKeyLegacy) {
         args.push(`--api-key=${apiKey}`);
@@ -215,7 +220,7 @@ function npxNiaSpawnConfig(
       args.push("--transport=stdio");
       return {
         command: process.execPath,
-        args: [cli, ...args],
+        args: [useLauncher ? launcher : cli, ...args],
         env: baseEnv,
       };
     }
@@ -298,10 +303,45 @@ async function spawnNiaMcpClient(): Promise<Client> {
     );
   }
 
+  const connectTimeoutMs = Number.parseInt(
+    process.env.NIA_MCP_CONNECT_TIMEOUT_MS ?? "300000",
+    10,
+  );
+
+  const client = new Client(
+    {
+      name: "cache-wrapped-nia",
+      version: "1.0.0",
+    },
+    { capabilities: {} },
+  );
+
+  if (envTruthy("NIA_USE_REMOTE_UPSTREAM")) {
+    const raw = (process.env.NIA_MCP_REMOTE_URL ?? "https://apigcp.trynia.ai/mcp").trim();
+    if (!/^https?:\/\//i.test(raw)) {
+      throw new Error("NIA_MCP_REMOTE_URL must be an http(s) URL when NIA_USE_REMOTE_UPSTREAM is set.");
+    }
+    const url = new URL(raw);
+    console.error(
+      `[cache-wrapped-nia] Connecting to Nia upstream (streamable HTTP) ${url.origin}${url.pathname} …`,
+    );
+    const transport = new StreamableHTTPClientTransport(url, {
+      requestInit: {
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          Accept: "application/json, text/event-stream",
+        },
+      },
+    });
+    await client.connect(transport, { timeout: connectTimeoutMs });
+    return client;
+  }
+
   const stderrMode = process.env.NIA_CHILD_STDERR?.trim().toLowerCase();
   const stderr = stderrMode === "inherit" ? "inherit" : "pipe";
   const { command, args, env: childEnv } = niaChildSpawnConfig(apiKey);
 
+  console.error("[cache-wrapped-nia] Connecting to Nia MCP subprocess…");
   const transport = new StdioClientTransport({
     command,
     args,
@@ -315,19 +355,6 @@ async function spawnNiaMcpClient(): Promise<Client> {
     });
   }
 
-  const client = new Client(
-    {
-      name: "cache-wrapped-nia",
-      version: "1.0.0",
-    },
-    { capabilities: {} },
-  );
-
-  /** MCP `initialize` wait — pipx cold install can exceed the SDK default (60s). */
-  const connectTimeoutMs = Number.parseInt(
-    process.env.NIA_MCP_CONNECT_TIMEOUT_MS ?? "300000",
-    10,
-  );
   await client.connect(transport, { timeout: connectTimeoutMs });
   return client;
 }
@@ -476,7 +503,6 @@ async function main(): Promise<void> {
   const cacheBase = process.env.CACHE_API_URL ?? "http://localhost:8000";
   const wsPort = Number.parseInt(process.env.WS_PORT ?? "8001", 10);
 
-  console.error("[cache-wrapped-nia] Connecting to Nia MCP subprocess...");
   const niaClient = await spawnNiaMcpClient();
 
   console.error("[cache-wrapped-nia] Warmup: measuring average Nia latency (3 calls)...");
