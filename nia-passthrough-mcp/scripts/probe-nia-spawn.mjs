@@ -3,7 +3,7 @@
  *
  * Default Nia child:
  * - macOS/Linux: pipx run --no-cache nia-mcp-server
- * - Windows: npx nia-codebase-mcp@latest (pipx Python stdio under Node often OSError 22 on stdout)
+ * - Windows: cmd /c npx … nia-codebase-mcp@latest (pipx Python stdio under Node often OSError 22)
  *
  * Usage:
  *   node scripts/probe-nia-spawn.mjs
@@ -13,6 +13,7 @@
  *   NIA_MCP_PACKAGE — force this npm package via npx (overrides Windows default)
  *   NIA_NPX_PACKAGE — Windows default npx package (default: nia-codebase-mcp@latest)
  *   NIA_WINDOWS_USE_PIPX=1 — on Windows use pipx nia-mcp-server instead
+ *   NIA_COMMAND — unix: npx binary; win32: token after cmd /c (default npx)
  *   NIA_LEGACY_CLI_API_KEY=1 — include --api-key in argv for npx (optional; exposes key in process list)
  */
 import process from "node:process";
@@ -24,8 +25,33 @@ const niaApiUrl =
   "https://apigcp.trynia.ai/";
 const legacyPkg = process.env.NIA_MCP_PACKAGE?.trim();
 const winUsePipx =
-  process.platform === "win32" &&
-  /^(?:1|true|yes)$/i.test(process.env.NIA_WINDOWS_USE_PIPX?.trim() ?? "");
+  process.platform === "win32" && /^(?:1|true|yes)$/i.test(process.env.NIA_WINDOWS_USE_PIPX?.trim() ?? "");
+
+const childEnv = { ...process.env, NIA_API_KEY: apiKey, NIA_API_URL: niaApiUrl };
+
+/**
+ * @param {string} pkg
+ * @returns {{ command: string; args: string[]; env: NodeJS.ProcessEnv }}
+ */
+function npxTransportConfig(pkg) {
+  const args = ["-y", pkg];
+  if (/^(?:1|true|yes)$/i.test(process.env.NIA_LEGACY_CLI_API_KEY?.trim() ?? "")) {
+    args.push(`--api-key=${apiKey}`);
+  }
+  args.push("--transport=stdio");
+
+  if (process.platform === "win32") {
+    const comspec = process.env.ComSpec?.trim() || "cmd.exe";
+    const npxBin = process.env.NIA_COMMAND?.trim() || "npx";
+    return {
+      command: comspec,
+      args: ["/d", "/s", "/c", npxBin, ...args],
+      env: childEnv,
+    };
+  }
+  const npx = process.env.NIA_COMMAND?.trim() || "npx";
+  return { command: npx, args, env: childEnv };
+}
 
 /** @type {{ command: string; args: string[]; env: NodeJS.ProcessEnv }} */
 let cfg;
@@ -33,46 +59,24 @@ let cfg;
 let mode;
 
 if (legacyPkg) {
-  const cmd =
-    process.env.NIA_COMMAND?.trim() ||
-    (process.platform === "win32" ? "npx.cmd" : "npx");
-  const args = ["-y", legacyPkg];
-  if (/^(?:1|true|yes)$/i.test(process.env.NIA_LEGACY_CLI_API_KEY?.trim() ?? "")) {
-    args.push(`--api-key=${apiKey}`);
-  }
-  args.push("--transport=stdio");
-  cfg = {
-    command: cmd,
-    args,
-    env: { ...process.env, NIA_API_KEY: apiKey, NIA_API_URL: niaApiUrl },
-  };
+  cfg = npxTransportConfig(legacyPkg);
   mode = "npx-forced-package";
 } else if (process.platform === "win32" && !winUsePipx) {
-  const cmd = process.env.NIA_COMMAND?.trim() || "npx.cmd";
   const pkg = process.env.NIA_NPX_PACKAGE?.trim() || "nia-codebase-mcp@latest";
-  const args = ["-y", pkg];
-  if (/^(?:1|true|yes)$/i.test(process.env.NIA_LEGACY_CLI_API_KEY?.trim() ?? "")) {
-    args.push(`--api-key=${apiKey}`);
-  }
-  args.push("--transport=stdio");
-  cfg = {
-    command: cmd,
-    args,
-    env: { ...process.env, NIA_API_KEY: apiKey, NIA_API_URL: niaApiUrl },
-  };
+  cfg = npxTransportConfig(pkg);
   mode = `win32-npx-${pkg}`;
 } else if (process.platform === "win32") {
   cfg = {
     command: "cmd",
     args: ["/c", "pipx", "run", "--no-cache", "nia-mcp-server"],
-    env: { ...process.env, NIA_API_KEY: apiKey, NIA_API_URL: niaApiUrl },
+    env: childEnv,
   };
   mode = "win32-pipx";
 } else {
   cfg = {
     command: "pipx",
     args: ["run", "--no-cache", "nia-mcp-server"],
-    env: { ...process.env, NIA_API_KEY: apiKey, NIA_API_URL: niaApiUrl },
+    env: childEnv,
   };
   mode = "pipx";
 }

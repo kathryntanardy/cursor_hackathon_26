@@ -174,19 +174,29 @@ function npxNiaSpawnConfig(
   apiKey: string,
   baseEnv: NodeJS.ProcessEnv,
 ): { command: string; args: string[]; env: NodeJS.ProcessEnv } {
-  const npx =
-    process.env.NIA_COMMAND?.trim() ||
-    (process.platform === "win32" ? "npx.cmd" : "npx");
-  const args: string[] = ["-y", pkg];
+  const npxArgs: string[] = ["-y", pkg];
   if (/^(?:1|true|yes)$/i.test(process.env.NIA_LEGACY_CLI_API_KEY?.trim() ?? "")) {
-    args.push(`--api-key=${apiKey}`);
+    npxArgs.push(`--api-key=${apiKey}`);
   }
-  args.push("--transport=stdio");
+  npxArgs.push("--transport=stdio");
+
+  if (process.platform === "win32") {
+    const comspec = process.env.ComSpec?.trim() || "cmd.exe";
+    const npxBin = process.env.NIA_COMMAND?.trim() || "npx";
+    return {
+      command: comspec,
+      // .cmd/.bat must run under cmd; cross-spawn + shell:false often drops the child immediately (MCP -32000).
+      args: ["/d", "/s", "/c", npxBin, ...npxArgs],
+      env: baseEnv,
+    };
+  }
+
+  const npx = process.env.NIA_COMMAND?.trim() || "npx";
   return {
     command: npx,
     // Upstream nia-codebase-mcp resolves key as CLI --api-key OR process.env.NIA_API_KEY.
     // NIA_LEGACY_CLI_API_KEY=1 opts into argv (visible in ps) for odd forks.
-    args,
+    args: npxArgs,
     env: baseEnv,
   };
 }
