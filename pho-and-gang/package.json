@@ -10,7 +10,7 @@
     "Other"
   ],
   "activationEvents": [
-    "onCommand:pho-and-gang.showDashboard"
+    "onCommand:cache.showDashboard"
   ],
   "main": "./dist/extension.js",
   "contributes": {
