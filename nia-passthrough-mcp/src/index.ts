@@ -2,7 +2,10 @@
  * Person 1 MCP — behavior and types per repo root CONTRACTS.md (§1–2, §5).
  */
 import { randomUUID } from "node:crypto";
+import fs from "node:fs";
+import path from "node:path";
 import process from "node:process";
+import { fileURLToPath } from "node:url";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -169,6 +172,22 @@ function isCachedResponse(val: unknown): val is CachedResponse {
   );
 }
 
+/** Must match `dependencies.nia-codebase-mcp` in package.json for bundled spawn. */
+const BUNDLED_NIA_CODEBASE_ARG = "nia-codebase-mcp@1.0.2";
+
+function gatewayPackageRoot(): string {
+  return path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+}
+
+function bundledNiaCodebaseMcpCliJs(): string | null {
+  const p = path.join(gatewayPackageRoot(), "node_modules", "nia-codebase-mcp", "dist", "index.js");
+  return fs.existsSync(p) ? p : null;
+}
+
+function envTruthy(name: string): boolean {
+  return /^(?:1|true|yes)$/i.test(process.env[name]?.trim() ?? "");
+}
+
 /** One token in the string passed to `cmd.exe /c "..."` (avoid broken parsing when args are split). */
 function windowsCmdExeToken(token: string): string {
   if (token === "") return '""';
@@ -183,8 +202,27 @@ function npxNiaSpawnConfig(
   apiKey: string,
   baseEnv: NodeJS.ProcessEnv,
 ): { command: string; args: string[]; env: NodeJS.ProcessEnv } {
+  const cliKeyLegacy = envTruthy("NIA_LEGACY_CLI_API_KEY");
+  const forceNpx = envTruthy("NIA_FORCE_NPX");
+
+  if (!forceNpx && pkg === BUNDLED_NIA_CODEBASE_ARG) {
+    const cli = bundledNiaCodebaseMcpCliJs();
+    if (cli) {
+      const args: string[] = [];
+      if (cliKeyLegacy) {
+        args.push(`--api-key=${apiKey}`);
+      }
+      args.push("--transport=stdio");
+      return {
+        command: process.execPath,
+        args: [cli, ...args],
+        env: baseEnv,
+      };
+    }
+  }
+
   const npxArgs: string[] = ["-y", pkg];
-  if (/^(?:1|true|yes)$/i.test(process.env.NIA_LEGACY_CLI_API_KEY?.trim() ?? "")) {
+  if (cliKeyLegacy) {
     npxArgs.push(`--api-key=${apiKey}`);
   }
   npxArgs.push("--transport=stdio");
@@ -232,11 +270,9 @@ function niaChildSpawnConfig(apiKey: string): {
 
   // Windows: pipx Python nia-mcp-server + MCP stdio under Node often raises
   // OSError [Errno 22] on stdout (anyio). Default to Node nia-codebase-mcp via npx unless opted in.
-  const winUsePipx =
-    process.platform === "win32" &&
-    /^(?:1|true|yes)$/i.test(process.env.NIA_WINDOWS_USE_PIPX?.trim() ?? "");
+  const winUsePipx = process.platform === "win32" && envTruthy("NIA_WINDOWS_USE_PIPX");
   if (process.platform === "win32" && !winUsePipx) {
-    const pkg = process.env.NIA_NPX_PACKAGE?.trim() || "nia-codebase-mcp@1.0.2";
+    const pkg = process.env.NIA_NPX_PACKAGE?.trim() || BUNDLED_NIA_CODEBASE_ARG;
     return npxNiaSpawnConfig(pkg, apiKey, baseEnv);
   }
 

@@ -32,6 +32,7 @@ if (!data.mcpServers || typeof data.mcpServers !== "object") {
 }
 
 delete data.mcpServers["nia-cache-gateway"];
+delete data.mcpServers.nia;
 data.mcpServers["cache-wrapped-nia"] = {
   command: process.execPath,
   args: [runnerPath],
