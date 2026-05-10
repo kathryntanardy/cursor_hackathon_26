@@ -35,8 +35,8 @@ Edit **`.env`**:
 |---------|----------|--------|
 | `NIA_API_KEY` | Yes | Nia authentication (never commit this file). |
 | `NIA_API_URL` | No | Nia API base URL for the child. Default `https://apigcp.trynia.ai/`. |
-| `NIA_MCP_REMOTE_URL` | No | **Remote upstream only** (`NIA_USE_REMOTE_UPSTREAM=1`): streamable HTTP MCP URL. Default `https://apigcp.trynia.ai/mcp`. Not used for **`mcp:install:remote`** (that writes URL into Cursor `mcp.json` instead). |
-| `NIA_USE_REMOTE_UPSTREAM` | No | Set `1` / `true` / `yes` so **this gateway** talks to TryNia’s **hosted MCP** over HTTP instead of spawning a local Nia child. **Keeps cache + WebSocket.** Cursor still uses **`npm run mcp:install`** (stdio to this process). |
+| `NIA_MCP_REMOTE_URL` | No | Hosted upstream URL (default **on**). Streamable HTTP MCP URL. Default `https://apigcp.trynia.ai/mcp`. Not used for **`mcp:install:remote`** (that writes URL into Cursor `mcp.json` instead). |
+| `NIA_USE_REMOTE_UPSTREAM` | No | **Default: hosted TryNia MCP** (`/mcp`) so you avoid bundled `nia-codebase-mcp` calling **`/chat/completions`** (often **404**). Set **`0` / `false` / `no`** to spawn a **local** Nia child (pipx / Node) instead. **Keeps cache + WebSocket** either way. Cursor still uses **`npm run mcp:install`**. |
 | `CACHE_API_URL` | No | Person 2 cache base URL. Default `http://localhost:8000`. |
 | `WS_PORT` | No | WebSocket dashboard port. Default `8001`. |
 | `NIA_MCP_PACKAGE` | No | Force **npx** to run this package (any OS), instead of the default (pipx on Unix; Windows npx default below). Use **`NIA_API_KEY`** in env (optional **`NIA_LEGACY_CLI_API_KEY`** for `--api-key`). |
@@ -62,11 +62,11 @@ TryNia’s recommended setup connects Cursor **directly** to `https://apigcp.try
 npm run mcp:install:remote
 ```
 
-**If you need cache + WebSocket**, skip this and use Option B with **`NIA_USE_REMOTE_UPSTREAM=1`** in `.env` (hosted Nia **inside** the gateway).
+**If you need cache + WebSocket**, use Option B (hosted Nia is the **default** upstream inside the gateway; set **`NIA_USE_REMOTE_UPSTREAM=0`** only if you want a local subprocess).
 
 ### Option B — **cache-wrapped-nia** (local gateway: cache + WebSocket + Nia)
 
-Cursor runs **`run-gateway.mjs`**. Nia can be either a **local subprocess** (default) or **TryNia hosted MCP** (set **`NIA_USE_REMOTE_UPSTREAM=1`** — same URL as the docs, Bearer `NIA_API_KEY`).
+Cursor runs **`run-gateway.mjs`**. Nia upstream is **TryNia hosted MCP** by default (same URL as the docs, Bearer `NIA_API_KEY`). Set **`NIA_USE_REMOTE_UPSTREAM=0`** in `.env` to use a **local subprocess** instead.
 
 ```bash
 npm run mcp:install
@@ -75,7 +75,7 @@ npm run mcp:install
 Put in **`nia-passthrough-mcp/.env`**:
 
 - **`NIA_API_KEY`**
-- **`NIA_USE_REMOTE_UPSTREAM=1`** — optional; use TryNia **remote** as the upstream from the gateway (still need **`npm run mcp:install`**, not `mcp:install:remote`).
+- **`NIA_USE_REMOTE_UPSTREAM=0`** — only if you want a **local** Nia subprocess instead of hosted **`/mcp`**.
 - **`NIA_MCP_REMOTE_URL`** — optional; default `https://apigcp.trynia.ai/mcp`.
 
 **Restart Cursor** after any `mcp.json` or `.env` change.
@@ -86,7 +86,7 @@ On Windows, the `mcp.json` path is **`%USERPROFILE%\.cursor\mcp.json`**.
 
 1. Start **Person 2** FastAPI on **port 8000** (so `/lookup` and `/insert` work).
 2. **Restart Cursor** (or reload MCP servers) so **cache-wrapped-nia** starts. On boot it also:
-   - connects to **Nia** (local subprocess, unless **`NIA_USE_REMOTE_UPSTREAM=1`** — then TryNia **streamable HTTP**);
+   - connects to **Nia** (hosted **`/mcp`** by default, or local subprocess if **`NIA_USE_REMOTE_UPSTREAM=0`**);
    - runs **3 warmup** Nia calls to estimate average latency;
    - listens on **WebSocket** `ws://localhost:8001` (or `WS_PORT`).
 3. Person 3 dashboard connects to that WebSocket and shows **`query_complete` / `metrics_update`** events.
@@ -110,7 +110,7 @@ On Windows, the `mcp.json` path is **`%USERPROFILE%\.cursor\mcp.json`**.
 |------|-------------|
 | `Missing dist/index.js` | Run `npm run build`. |
 | `NIA_API_KEY` missing | Set it in `.env` next to this package or export it before launching Cursor. |
-| `MCP error -32000: Connection closed` on startup | With **local** Nia: run **`npm install`** / **`npm run build`**. On **Windows**, bundled `nia-codebase-mcp` is spawned via **`scripts/nia-bundled-launch.mjs`** so its startup guard sees a matching `process.argv[1]`. Still stuck: **`NIA_USE_REMOTE_UPSTREAM=1`** (hosted Nia) or **`NIA_FORCE_NPX=1`**. |
+| `MCP error -32000: Connection closed` on startup | With **local** Nia (`NIA_USE_REMOTE_UPSTREAM=0`): run **`npm install`** / **`npm run build`**. On **Windows**, bundled `nia-codebase-mcp` uses **`scripts/nia-bundled-launch.mjs`**. **Default** upstream is hosted **`/mcp`** (no local child). |
 | `MCP error -32001: Request timed out` on startup | Often **pipx** still installing on first run (MCP defaults to 60s). This gateway uses **5m** by default; increase `NIA_MCP_CONNECT_TIMEOUT_MS` or run `pipx run --no-cache nia-mcp-server` once to warm the venv. |
 | Python **`OSError: [Errno 22] Invalid argument`** on stdout (pipx / **nia-mcp-server**, Windows) | Common when the Python child speaks MCP over stdio under this Node gateway. **Default fix:** use the Windows **npx** child (do not set `NIA_WINDOWS_USE_PIPX`). Or set **`NIA_MCP_PACKAGE=nia-codebase-mcp@…`**. |
 | Legacy **`NIA_MCP_PACKAGE`** — worried auth is broken without `--api-key` | **`nia-codebase-mcp`** uses **`--api-key` or `NIA_API_KEY`** (either works). This gateway sets **`NIA_API_KEY`** in the child env only. Use **`NIA_LEGACY_CLI_API_KEY=1`** only if you run a fork that ignores env. |

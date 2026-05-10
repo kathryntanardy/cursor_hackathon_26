@@ -189,6 +189,15 @@ function envTruthy(name: string): boolean {
   return /^(?:1|true|yes)$/i.test(process.env[name]?.trim() ?? "");
 }
 
+/** TryNia recommends hosted MCP (`/mcp`). Bundled `nia-codebase-mcp` calls `/chat/completions`, which 404s on current apigcp — default remote avoids that. Set `NIA_USE_REMOTE_UPSTREAM=0` for a local subprocess (pipx / bundled). */
+function useRemoteNiaUpstream(): boolean {
+  const v = process.env.NIA_USE_REMOTE_UPSTREAM?.trim();
+  if (v === undefined || v === "") {
+    return true;
+  }
+  return envTruthy("NIA_USE_REMOTE_UPSTREAM");
+}
+
 /** One token in the string passed to `cmd.exe /c "..."` (avoid broken parsing when args are split). */
 function windowsCmdExeToken(token: string): string {
   if (token === "") return '""';
@@ -316,10 +325,10 @@ async function spawnNiaMcpClient(): Promise<Client> {
     { capabilities: {} },
   );
 
-  if (envTruthy("NIA_USE_REMOTE_UPSTREAM")) {
+  if (useRemoteNiaUpstream()) {
     const raw = (process.env.NIA_MCP_REMOTE_URL ?? "https://apigcp.trynia.ai/mcp").trim();
     if (!/^https?:\/\//i.test(raw)) {
-      throw new Error("NIA_MCP_REMOTE_URL must be an http(s) URL when NIA_USE_REMOTE_UPSTREAM is set.");
+      throw new Error("NIA_MCP_REMOTE_URL must be an http(s) URL when using hosted Nia upstream.");
     }
     const url = new URL(raw);
     console.error(
