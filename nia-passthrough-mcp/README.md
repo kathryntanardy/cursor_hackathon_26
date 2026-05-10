@@ -39,6 +39,7 @@ Edit **`.env`**:
 | `WS_PORT` | No | WebSocket dashboard port. Default `8001`. |
 | `NIA_MCP_PACKAGE` | No | Legacy: set to e.g. `nia-codebase-mcp@1.0.2` to use **npx** instead of **pipx** `nia-mcp-server`. |
 | `NIA_TOOL_TIMEOUT_MS` | No | Timeout for each Nia tool call (ms). Default `300000`. |
+| `NIA_MCP_CONNECT_TIMEOUT_MS` | No | MCP `initialize` to the Nia child (ms). Default `300000`. Raise if cold `pipx` install is slow. |
 | `CACHE_LOOKUP_TIMEOUT_MS` | No | `POST /lookup` timeout (ms). Default `8000`. |
 | `CACHE_INSERT_TIMEOUT_MS` | No | `POST /insert` timeout (ms). Default `8000`. |
 | `NIA_WARMUP_QUERY` | No | Warmup string for average Nia latency measurement. |
@@ -84,6 +85,7 @@ On Windows, the path is **`%USERPROFILE%\.cursor\mcp.json`**.
 | `Missing dist/index.js` | Run `npm run build`. |
 | `NIA_API_KEY` missing | Set it in `.env` next to this package or export it before launching Cursor. |
 | `MCP error -32000: Connection closed` on startup | Install **pipx** and ensure `pipx run nia-mcp-server` works; on Windows see TryNia “Windows Configuration”. Legacy: set `NIA_MCP_PACKAGE` to use npx. |
+| `MCP error -32001: Request timed out` on startup | Often **pipx** still installing on first run (MCP defaults to 60s). This gateway uses **5m** by default; increase `NIA_MCP_CONNECT_TIMEOUT_MS` or run `pipx run --no-cache nia-mcp-server` once to warm the venv. |
 | `EADDRINUSE` on port 8001 | Change `WS_PORT` in `.env` and point Person 3 at the same port. |
 | Cursor still on old MCP name | Run `npm run mcp:install` again; old `nia-cache-gateway` entry was removed when migrating to **`cache-wrapped-nia`**. |
 

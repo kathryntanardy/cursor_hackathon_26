@@ -149,7 +149,9 @@ async function spawnNiaMcpClient() {
         name: "cache-wrapped-nia",
         version: "1.0.0",
     }, { capabilities: {} });
-    await client.connect(transport);
+    /** MCP `initialize` wait — pipx cold install can exceed the SDK default (60s). */
+    const connectTimeoutMs = Number.parseInt(process.env.NIA_MCP_CONNECT_TIMEOUT_MS ?? "300000", 10);
+    await client.connect(transport, { timeout: connectTimeoutMs });
     return client;
 }
 function failOpenNiaPayload(reason) {
