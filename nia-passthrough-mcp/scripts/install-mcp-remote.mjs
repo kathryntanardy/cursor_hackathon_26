@@ -5,6 +5,7 @@
  *
  * Reads NIA_API_KEY from nia-passthrough-mcp/.env (same as run-gateway) or from the environment.
  * Removes `cache-wrapped-nia` so you do not run two Nia stacks; run `npm run mcp:install` to restore the gateway.
+ * Need cache + WebSocket + hosted Nia? Run `npm run mcp:install` (hosted upstream is the default; set `NIA_USE_REMOTE_UPSTREAM=0` for a local child).
  */
 import fs from "node:fs";
 import os from "node:os";
