@@ -2,3 +2,7 @@
 nia-passthrough-mcp/.env
 nia-passthrough-mcp/dist/
 nia-passthrough-mcp/*.log
+**/.venv
+**/__pycache__
+**/*.pyc
+cache-engine/.env
