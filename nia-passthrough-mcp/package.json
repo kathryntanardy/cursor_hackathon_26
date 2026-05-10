@@ -9,7 +9,8 @@
     "start": "node dist/index.js",
     "dev": "tsx src/index.ts",
     "mcp:install": "node scripts/install-mcp-config.mjs",
-    "mcp:install:remote": "node scripts/install-mcp-remote.mjs"
+    "mcp:install:remote": "node scripts/install-mcp-remote.mjs",
+    "postinstall": "node scripts/patch-nia-codebase-mcp.mjs"
   },
   "engines": {
     "node": ">=18"
