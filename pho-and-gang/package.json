@@ -1,21 +1,23 @@
 {
   "name": "pho-and-gang",
-  "displayName": "pho_and_gang",
-  "description": "philip ho",
+  "displayName": "Cache Dashboard",
+  "description": "Real-time cache performance dashboard for the MCP caching layer",
   "version": "0.0.1",
   "engines": {
-    "vscode": "^1.118.0"
+    "vscode": "^1.85.0"
   },
   "categories": [
     "Other"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onCommand:cache.showDashboard"
+  ],
   "main": "./dist/extension.js",
   "contributes": {
     "commands": [
       {
-        "command": "pho-and-gang.helloWorld",
-        "title": "Hello World"
+        "command": "cache.showDashboard",
+        "title": "Cache: Show Dashboard"
       }
     ]
   },
@@ -34,7 +36,7 @@
     "test": "vscode-test"
   },
   "devDependencies": {
-    "@types/vscode": "^1.118.0",
+    "@types/vscode": "^1.117.0",
     "@types/mocha": "^10.0.10",
     "@types/node": "22.x",
     "typescript-eslint": "^8.56.1",
