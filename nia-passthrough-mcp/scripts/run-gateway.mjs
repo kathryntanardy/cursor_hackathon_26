@@ -25,7 +25,10 @@ function loadDotEnv(filePath, base) {
   }
   const parsed = dotenv.parse(fs.readFileSync(filePath, "utf8"));
   for (const [key, val] of Object.entries(parsed)) {
-    out[key] = val;
+    // Like dotenv: do not override variables already set in the parent environment.
+    if (!(key in out)) {
+      out[key] = val;
+    }
   }
   return out;
 }
