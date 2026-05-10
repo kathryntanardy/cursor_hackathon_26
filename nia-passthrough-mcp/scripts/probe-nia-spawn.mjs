@@ -8,6 +8,7 @@
  * Env:
  *   NIA_API_KEY, NIA_API_URL (optional)
  *   NIA_MCP_PACKAGE — if set, legacy npx probe instead (optional NIA_COMMAND)
+ *   NIA_LEGACY_CLI_API_KEY=1 — include --api-key in argv for legacy npx (optional; exposes key in process list)
  */
 import process from "node:process";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
@@ -24,9 +25,14 @@ if (legacyPkg) {
   const cmd =
     process.env.NIA_COMMAND?.trim() ||
     (process.platform === "win32" ? "npx.cmd" : "npx");
+  const args = ["-y", legacyPkg];
+  if (/^1|true|yes$/i.test(process.env.NIA_LEGACY_CLI_API_KEY?.trim() ?? "")) {
+    args.push(`--api-key=${apiKey}`);
+  }
+  args.push("--transport=stdio");
   cfg = {
     command: cmd,
-    args: ["-y", legacyPkg, "--transport=stdio"],
+    args,
     env: { ...process.env, NIA_API_KEY: apiKey, NIA_API_URL: niaApiUrl },
   };
 } else if (process.platform === "win32") {

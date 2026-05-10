@@ -188,10 +188,17 @@ function niaChildSpawnConfig(apiKey: string): {
     const npx =
       process.env.NIA_COMMAND?.trim() ||
       (process.platform === "win32" ? "npx.cmd" : "npx");
+    const args: string[] = ["-y", legacyPkg];
+    const cliKeyLegacy = /^1|true|yes$/i.test(process.env.NIA_LEGACY_CLI_API_KEY?.trim() ?? "");
+    if (cliKeyLegacy) {
+      args.push(`--api-key=${apiKey}`);
+    }
+    args.push("--transport=stdio");
     return {
       command: npx,
-      // Auth via NIA_API_KEY in env only — avoid passing secrets in argv (visible in `ps` / tasklist).
-      args: ["-y", legacyPkg, "--transport=stdio"],
+      // Default: NIA_API_KEY in env only (not visible in argv). Some nia-codebase-mcp builds
+      // only read --api-key; set NIA_LEGACY_CLI_API_KEY=1 if lookups fail with no other errors.
+      args,
       env: baseEnv,
     };
   }

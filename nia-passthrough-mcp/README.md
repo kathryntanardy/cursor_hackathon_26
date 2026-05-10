@@ -37,7 +37,8 @@ Edit **`.env`**:
 | `NIA_API_URL` | No | Nia API base URL for the child. Default `https://apigcp.trynia.ai/`. |
 | `CACHE_API_URL` | No | Person 2 cache base URL. Default `http://localhost:8000`. |
 | `WS_PORT` | No | WebSocket dashboard port. Default `8001`. |
-| `NIA_MCP_PACKAGE` | No | Legacy: set to e.g. `nia-codebase-mcp@1.0.2` to use **npx** instead of **pipx** `nia-mcp-server`. The key must be in **`NIA_API_KEY`** (env only; never passed on the command line). |
+| `NIA_MCP_PACKAGE` | No | Legacy: set to e.g. `nia-codebase-mcp@1.0.2` to use **npx** instead of **pipx** `nia-mcp-server`. Use **`NIA_API_KEY`** in `.env` / environment (default: not passed on the command line). |
+| `NIA_LEGACY_CLI_API_KEY` | No | If `1` / `true` / `yes`, legacy **npx** also passes `--api-key` (only if the package ignores `NIA_API_KEY` in env; **less secure**, visible in `ps` / Task Manager). |
 | `NIA_TOOL_TIMEOUT_MS` | No | Timeout for each Nia tool call (ms). Default `300000`. |
 | `NIA_MCP_CONNECT_TIMEOUT_MS` | No | MCP `initialize` to the Nia child (ms). Default `300000`. Raise if cold `pipx` install is slow. |
 | `CACHE_LOOKUP_TIMEOUT_MS` | No | `POST /lookup` timeout (ms). Default `8000`. |
