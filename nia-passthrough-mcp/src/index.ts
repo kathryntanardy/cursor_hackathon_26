@@ -169,6 +169,28 @@ function isCachedResponse(val: unknown): val is CachedResponse {
   );
 }
 
+function npxNiaSpawnConfig(
+  pkg: string,
+  apiKey: string,
+  baseEnv: NodeJS.ProcessEnv,
+): { command: string; args: string[]; env: NodeJS.ProcessEnv } {
+  const npx =
+    process.env.NIA_COMMAND?.trim() ||
+    (process.platform === "win32" ? "npx.cmd" : "npx");
+  const args: string[] = ["-y", pkg];
+  if (/^1|true|yes$/i.test(process.env.NIA_LEGACY_CLI_API_KEY?.trim() ?? "")) {
+    args.push(`--api-key=${apiKey}`);
+  }
+  args.push("--transport=stdio");
+  return {
+    command: npx,
+    // Upstream nia-codebase-mcp resolves key as CLI --api-key OR process.env.NIA_API_KEY.
+    // NIA_LEGACY_CLI_API_KEY=1 opts into argv (visible in ps) for odd forks.
+    args,
+    env: baseEnv,
+  };
+}
+
 function niaChildSpawnConfig(apiKey: string): {
   command: string;
   args: string[];
@@ -185,23 +207,17 @@ function niaChildSpawnConfig(apiKey: string): {
 
   const legacyPkg = process.env.NIA_MCP_PACKAGE?.trim();
   if (legacyPkg) {
-    const npx =
-      process.env.NIA_COMMAND?.trim() ||
-      (process.platform === "win32" ? "npx.cmd" : "npx");
-    const args: string[] = ["-y", legacyPkg];
-    const cliKeyLegacy = /^1|true|yes$/i.test(process.env.NIA_LEGACY_CLI_API_KEY?.trim() ?? "");
-    if (cliKeyLegacy) {
-      args.push(`--api-key=${apiKey}`);
-    }
-    args.push("--transport=stdio");
-    return {
-      command: npx,
-      // Upstream nia-codebase-mcp resolves key as CLI --api-key OR process.env.NIA_API_KEY
-      // (see parseArgs + main in that package). Omitting --api-key avoids argv leakage; baseEnv
-      // still sets NIA_API_KEY. NIA_LEGACY_CLI_API_KEY=1 opts back into --api-key for odd forks.
-      args,
-      env: baseEnv,
-    };
+    return npxNiaSpawnConfig(legacyPkg, apiKey, baseEnv);
+  }
+
+  // Windows: pipx Python nia-mcp-server + MCP stdio under Node often raises
+  // OSError [Errno 22] on stdout (anyio). Default to Node nia-codebase-mcp via npx unless opted in.
+  const winUsePipx =
+    process.platform === "win32" &&
+    /^1|true|yes$/i.test(process.env.NIA_WINDOWS_USE_PIPX?.trim() ?? "");
+  if (process.platform === "win32" && !winUsePipx) {
+    const pkg = process.env.NIA_NPX_PACKAGE?.trim() || "nia-codebase-mcp@latest";
+    return npxNiaSpawnConfig(pkg, apiKey, baseEnv);
   }
 
   if (process.platform === "win32") {
