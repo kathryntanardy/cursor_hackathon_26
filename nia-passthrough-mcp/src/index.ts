@@ -169,6 +169,46 @@ function isCachedResponse(val: unknown): val is CachedResponse {
   );
 }
 
+function niaChildSpawnConfig(apiKey: string): {
+  command: string;
+  args: string[];
+  env: NodeJS.ProcessEnv;
+} {
+  const niaApiUrl =
+    (process.env.NIA_API_URL ?? "https://apigcp.trynia.ai/").trim() ||
+    "https://apigcp.trynia.ai/";
+  const baseEnv: NodeJS.ProcessEnv = {
+    ...process.env,
+    NIA_API_KEY: apiKey,
+    NIA_API_URL: niaApiUrl,
+  };
+
+  const legacyPkg = process.env.NIA_MCP_PACKAGE?.trim();
+  if (legacyPkg) {
+    const npx =
+      process.env.NIA_COMMAND?.trim() ||
+      (process.platform === "win32" ? "npx.cmd" : "npx");
+    return {
+      command: npx,
+      args: ["-y", legacyPkg, `--api-key=${apiKey}`, "--transport=stdio"],
+      env: baseEnv,
+    };
+  }
+
+  if (process.platform === "win32") {
+    return {
+      command: "cmd",
+      args: ["/c", "pipx", "run", "--no-cache", "nia-mcp-server"],
+      env: baseEnv,
+    };
+  }
+  return {
+    command: "pipx",
+    args: ["run", "--no-cache", "nia-mcp-server"],
+    env: baseEnv,
+  };
+}
+
 async function spawnNiaMcpClient(): Promise<Client> {
   const apiKey = process.env.NIA_API_KEY?.trim();
   if (!apiKey) {
@@ -177,18 +217,14 @@ async function spawnNiaMcpClient(): Promise<Client> {
     );
   }
 
-  const npx = process.env.NIA_COMMAND ?? "npx";
-  const pkg = process.env.NIA_MCP_PACKAGE ?? "nia-codebase-mcp@latest";
   const stderr = process.env.NIA_CHILD_STDERR === "pipe" ? "pipe" : "inherit";
+  const { command, args, env: childEnv } = niaChildSpawnConfig(apiKey);
 
   const transport = new StdioClientTransport({
-    command: npx,
-    args: ["-y", pkg, `--api-key=${apiKey}`, "--transport=stdio"],
+    command,
+    args,
     stderr,
-    env: {
-      ...process.env,
-      NIA_API_KEY: apiKey,
-    },
+    env: childEnv as Record<string, string>,
   });
 
   const client = new Client(

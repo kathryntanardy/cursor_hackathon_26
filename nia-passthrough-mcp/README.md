@@ -1,10 +1,11 @@
 # cache-wrapped-nia MCP (Person 1)
 
-Node MCP server that wraps **Nia** (`nia-codebase-mcp`) with Person 2’s **HTTP cache** and broadcasts metrics to Person 3’s dashboard over **WebSocket**. Behavior matches the repo root [**CONTRACTS.md**](../CONTRACTS.md).
+Node MCP server that wraps **Nia** (official local server: `pipx run --no-cache nia-mcp-server` per [TryNia MCP docs](https://docs.trynia.ai/integrations/installation/mcp#cursor)) with Person 2’s **HTTP cache** and broadcasts metrics to Person 3’s dashboard over **WebSocket**. Behavior matches the repo root [**CONTRACTS.md**](../CONTRACTS.md).
 
 ## Prerequisites
 
 - **Node.js 18+**
+- **pipx** with **`nia-mcp-server`** available (TryNia local MCP). On Windows the gateway uses `cmd /c pipx ...` as in the docs.
 - **Cursor** (with MCP support)
 - **Nia API key** for your indexed codebase
 - **Person 2** (optional but required for caching): FastAPI on `http://localhost:8000` with `/lookup`, `/insert`, `/reset`, and optionally `/metrics`. If it is down, lookups fail open and every request goes to Nia.
@@ -33,9 +34,10 @@ Edit **`.env`**:
 | Variable | Required | Purpose |
 |---------|----------|--------|
 | `NIA_API_KEY` | Yes | Nia authentication (never commit this file). |
+| `NIA_API_URL` | No | Nia API base URL for the child. Default `https://apigcp.trynia.ai/`. |
 | `CACHE_API_URL` | No | Person 2 cache base URL. Default `http://localhost:8000`. |
 | `WS_PORT` | No | WebSocket dashboard port. Default `8001`. |
-| `NIA_MCP_PACKAGE` | No | Pin e.g. `nia-codebase-mcp@1.0.2` instead of `@latest`. |
+| `NIA_MCP_PACKAGE` | No | Legacy: set to e.g. `nia-codebase-mcp@1.0.2` to use **npx** instead of **pipx** `nia-mcp-server`. |
 | `NIA_TOOL_TIMEOUT_MS` | No | Timeout for each Nia tool call (ms). Default `300000`. |
 | `CACHE_LOOKUP_TIMEOUT_MS` | No | `POST /lookup` timeout (ms). Default `8000`. |
 | `CACHE_INSERT_TIMEOUT_MS` | No | `POST /insert` timeout (ms). Default `8000`. |
@@ -81,6 +83,7 @@ On Windows, the path is **`%USERPROFILE%\.cursor\mcp.json`**.
 |------|-------------|
 | `Missing dist/index.js` | Run `npm run build`. |
 | `NIA_API_KEY` missing | Set it in `.env` next to this package or export it before launching Cursor. |
+| `MCP error -32000: Connection closed` on startup | Install **pipx** and ensure `pipx run nia-mcp-server` works; on Windows see TryNia “Windows Configuration”. Legacy: set `NIA_MCP_PACKAGE` to use npx. |
 | `EADDRINUSE` on port 8001 | Change `WS_PORT` in `.env` and point Person 3 at the same port. |
 | Cursor still on old MCP name | Run `npm run mcp:install` again; old `nia-cache-gateway` entry was removed when migrating to **`cache-wrapped-nia`**. |
 

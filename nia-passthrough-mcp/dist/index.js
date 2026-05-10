@@ -101,22 +101,49 @@ function isCachedResponse(val) {
         Array.isArray(val.sources) &&
         val.sources.every((s) => typeof s === "string"));
 }
+function niaChildSpawnConfig(apiKey) {
+    const niaApiUrl = (process.env.NIA_API_URL ?? "https://apigcp.trynia.ai/").trim() ||
+        "https://apigcp.trynia.ai/";
+    const baseEnv = {
+        ...process.env,
+        NIA_API_KEY: apiKey,
+        NIA_API_URL: niaApiUrl,
+    };
+    const legacyPkg = process.env.NIA_MCP_PACKAGE?.trim();
+    if (legacyPkg) {
+        const npx = process.env.NIA_COMMAND?.trim() ||
+            (process.platform === "win32" ? "npx.cmd" : "npx");
+        return {
+            command: npx,
+            args: ["-y", legacyPkg, `--api-key=${apiKey}`, "--transport=stdio"],
+            env: baseEnv,
+        };
+    }
+    if (process.platform === "win32") {
+        return {
+            command: "cmd",
+            args: ["/c", "pipx", "run", "--no-cache", "nia-mcp-server"],
+            env: baseEnv,
+        };
+    }
+    return {
+        command: "pipx",
+        args: ["run", "--no-cache", "nia-mcp-server"],
+        env: baseEnv,
+    };
+}
 async function spawnNiaMcpClient() {
     const apiKey = process.env.NIA_API_KEY?.trim();
     if (!apiKey) {
         throw new Error("NIA_API_KEY is required so the subprocess can authenticate to Nia. Set it in the environment passed to this MCP.");
     }
-    const npx = process.env.NIA_COMMAND ?? "npx";
-    const pkg = process.env.NIA_MCP_PACKAGE ?? "nia-codebase-mcp@latest";
     const stderr = process.env.NIA_CHILD_STDERR === "pipe" ? "pipe" : "inherit";
+    const { command, args, env: childEnv } = niaChildSpawnConfig(apiKey);
     const transport = new StdioClientTransport({
-        command: npx,
-        args: ["-y", pkg, `--api-key=${apiKey}`, "--transport=stdio"],
+        command,
+        args,
         stderr,
-        env: {
-            ...process.env,
-            NIA_API_KEY: apiKey,
-        },
+        env: childEnv,
     });
     const client = new Client({
         name: "cache-wrapped-nia",
