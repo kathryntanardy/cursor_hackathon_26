@@ -3,7 +3,7 @@
  *
  * Default Nia child:
  * - macOS/Linux: pipx run --no-cache nia-mcp-server
- * - Windows: cmd /c npx … nia-codebase-mcp@latest (pipx Python stdio under Node often OSError 22)
+ * - Windows: cmd /c npx … nia-codebase-mcp@1.0.2 (pipx Python stdio under Node often OSError 22)
  *
  * Usage:
  *   node scripts/probe-nia-spawn.mjs
@@ -11,7 +11,7 @@
  * Env:
  *   NIA_API_KEY, NIA_API_URL (optional)
  *   NIA_MCP_PACKAGE — force this npm package via npx (overrides Windows default)
- *   NIA_NPX_PACKAGE — Windows default npx package (default: nia-codebase-mcp@latest)
+ *   NIA_NPX_PACKAGE — Windows default npx package (default: nia-codebase-mcp@1.0.2)
  *   NIA_WINDOWS_USE_PIPX=1 — on Windows use pipx nia-mcp-server instead
  *   NIA_COMMAND — unix: npx binary; win32: token after cmd /c (default npx)
  *   NIA_LEGACY_CLI_API_KEY=1 — include --api-key in argv for npx (optional; exposes key in process list)
@@ -29,6 +29,15 @@ const winUsePipx =
 
 const childEnv = { ...process.env, NIA_API_KEY: apiKey, NIA_API_URL: niaApiUrl };
 
+/** @param {string} token */
+function windowsCmdExeToken(token) {
+  if (token === "") return '""';
+  if (/[\s^&|()<>"]/u.test(token)) {
+    return `"${token.replace(/"/gu, '\\"')}"`;
+  }
+  return token;
+}
+
 /**
  * @param {string} pkg
  * @returns {{ command: string; args: string[]; env: NodeJS.ProcessEnv }}
@@ -43,9 +52,10 @@ function npxTransportConfig(pkg) {
   if (process.platform === "win32") {
     const comspec = process.env.ComSpec?.trim() || "cmd.exe";
     const npxBin = process.env.NIA_COMMAND?.trim() || "npx";
+    const cmdline = [npxBin, ...args].map(windowsCmdExeToken).join(" ");
     return {
       command: comspec,
-      args: ["/d", "/s", "/c", npxBin, ...args],
+      args: ["/d", "/s", "/c", cmdline],
       env: childEnv,
     };
   }
@@ -62,7 +72,7 @@ if (legacyPkg) {
   cfg = npxTransportConfig(legacyPkg);
   mode = "npx-forced-package";
 } else if (process.platform === "win32" && !winUsePipx) {
-  const pkg = process.env.NIA_NPX_PACKAGE?.trim() || "nia-codebase-mcp@latest";
+  const pkg = process.env.NIA_NPX_PACKAGE?.trim() || "nia-codebase-mcp@1.0.2";
   cfg = npxTransportConfig(pkg);
   mode = `win32-npx-${pkg}`;
 } else if (process.platform === "win32") {
