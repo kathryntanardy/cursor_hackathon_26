@@ -169,6 +169,15 @@ function isCachedResponse(val: unknown): val is CachedResponse {
   );
 }
 
+/** One token in the string passed to `cmd.exe /c "..."` (avoid broken parsing when args are split). */
+function windowsCmdExeToken(token: string): string {
+  if (token === "") return '""';
+  if (/[\s^&|()<>"]/u.test(token)) {
+    return `"${token.replace(/"/gu, '\\"')}"`;
+  }
+  return token;
+}
+
 function npxNiaSpawnConfig(
   pkg: string,
   apiKey: string,
@@ -183,10 +192,11 @@ function npxNiaSpawnConfig(
   if (process.platform === "win32") {
     const comspec = process.env.ComSpec?.trim() || "cmd.exe";
     const npxBin = process.env.NIA_COMMAND?.trim() || "npx";
+    const cmdline = [npxBin, ...npxArgs].map(windowsCmdExeToken).join(" ");
     return {
       command: comspec,
-      // .cmd/.bat must run under cmd; cross-spawn + shell:false often drops the child immediately (MCP -32000).
-      args: ["/d", "/s", "/c", npxBin, ...npxArgs],
+      // One argv tail after /c: cmd only treats the remainder as the command when passed this way reliably.
+      args: ["/d", "/s", "/c", cmdline],
       env: baseEnv,
     };
   }
@@ -226,7 +236,7 @@ function niaChildSpawnConfig(apiKey: string): {
     process.platform === "win32" &&
     /^(?:1|true|yes)$/i.test(process.env.NIA_WINDOWS_USE_PIPX?.trim() ?? "");
   if (process.platform === "win32" && !winUsePipx) {
-    const pkg = process.env.NIA_NPX_PACKAGE?.trim() || "nia-codebase-mcp@latest";
+    const pkg = process.env.NIA_NPX_PACKAGE?.trim() || "nia-codebase-mcp@1.0.2";
     return npxNiaSpawnConfig(pkg, apiKey, baseEnv);
   }
 
@@ -252,7 +262,8 @@ async function spawnNiaMcpClient(): Promise<Client> {
     );
   }
 
-  const stderr = process.env.NIA_CHILD_STDERR === "pipe" ? "pipe" : "inherit";
+  const stderrMode = process.env.NIA_CHILD_STDERR?.trim().toLowerCase();
+  const stderr = stderrMode === "inherit" ? "inherit" : "pipe";
   const { command, args, env: childEnv } = niaChildSpawnConfig(apiKey);
 
   const transport = new StdioClientTransport({
@@ -261,6 +272,12 @@ async function spawnNiaMcpClient(): Promise<Client> {
     stderr,
     env: childEnv as Record<string, string>,
   });
+
+  if (stderr === "pipe") {
+    transport.stderr?.on("data", (chunk) => {
+      process.stderr.write(chunk);
+    });
+  }
 
   const client = new Client(
     {

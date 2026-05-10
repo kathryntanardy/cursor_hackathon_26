@@ -5,7 +5,7 @@ Node MCP server that wraps **Nia** (official local server: `pipx run --no-cache 
 ## Prerequisites
 
 - **Node.js 18+**
-- **pipx** with **`nia-mcp-server`** (macOS / Linux default), or **Node** with **`npx`** (Windows default: `nia-codebase-mcp@latest` — Python `nia-mcp-server` over pipx often breaks MCP stdio under Node with `OSError: [Errno 22]` on stdout). Set **`NIA_WINDOWS_USE_PIPX=1`** to force TryNia’s pipx path on Windows.
+- **pipx** with **`nia-mcp-server`** (macOS / Linux default), or **Node** with **`npx`** (Windows default: `nia-codebase-mcp@1.0.2` — Python `nia-mcp-server` over pipx often breaks MCP stdio under Node with `OSError: [Errno 22]` on stdout). Set **`NIA_WINDOWS_USE_PIPX=1`** to force TryNia’s pipx path on Windows.
 - **Cursor** (with MCP support)
 - **Nia API key** for your indexed codebase
 - **Person 2** (optional but required for caching): FastAPI on `http://localhost:8000` with `/lookup`, `/insert`, `/reset`, and optionally `/metrics`. If it is down, lookups fail open and every request goes to Nia.
@@ -39,9 +39,10 @@ Edit **`.env`**:
 | `WS_PORT` | No | WebSocket dashboard port. Default `8001`. |
 | `NIA_MCP_PACKAGE` | No | Force **npx** to run this package (any OS), instead of the default (pipx on Unix; Windows npx default below). Use **`NIA_API_KEY`** in env (optional **`NIA_LEGACY_CLI_API_KEY`** for `--api-key`). |
 | `NIA_WINDOWS_USE_PIPX` | No | **Windows only:** set `1` / `true` / `yes` to use **`pipx run nia-mcp-server`** (TryNia docs). Default is **`npx`** + **`NIA_NPX_PACKAGE`** because pipx + Python stdio from Node often crashes. |
-| `NIA_NPX_PACKAGE` | No | **Windows** default npx spec when `NIA_MCP_PACKAGE` is unset. Default `nia-codebase-mcp@latest`. |
-| `NIA_COMMAND` | No | **npx** executable: on Unix, default `npx`. On Windows, command run as `cmd /d /s /c <NIA_COMMAND> -y …` (default `npx`). Use an absolute path if `npx` is not on PATH for the MCP process. |
-| `NIA_LEGACY_CLI_API_KEY` | No | Rare: set to `1` / `true` / `yes` to add `--api-key` for legacy **npx** (key visible in `ps`). Official **`nia-codebase-mcp`** already uses `NIA_API_KEY` from env when the flag is omitted. |
+| `NIA_NPX_PACKAGE` | No | **Windows** default npx spec when `NIA_MCP_PACKAGE` is unset. Default `nia-codebase-mcp@1.0.2`. |
+| `NIA_COMMAND` | No | **npx** executable. **Unix:** default `npx`. **Windows:** first token in the `cmd /c` line (default `npx`); quote rules apply to full path. Use an absolute path if Cursor’s `PATH` does not include npm. |
+| `NIA_CHILD_STDERR` | No | Nia child stderr: unset or `pipe` (default) pipes and forwards to logs; `inherit` uses parent stderr only. |
+| `NIA_LEGACY_CLI_API_KEY` | No | Rare: set to `1` / `true` / `yes` to add `--api-key` for **npx** (key visible in `ps`). Official **`nia-codebase-mcp`** already uses `NIA_API_KEY` from env when the flag is omitted. |
 | `NIA_TOOL_TIMEOUT_MS` | No | Timeout for each Nia tool call (ms). Default `300000`. |
 | `NIA_MCP_CONNECT_TIMEOUT_MS` | No | MCP `initialize` to the Nia child (ms). Default `300000`. Raise if cold `pipx` install is slow. |
 | `CACHE_LOOKUP_TIMEOUT_MS` | No | `POST /lookup` timeout (ms). Default `8000`. |
