@@ -40,6 +40,7 @@ Edit **`.env`**:
 | `NIA_MCP_PACKAGE` | No | Force **npx** to run this package (any OS), instead of the default (pipx on Unix; Windows npx default below). Use **`NIA_API_KEY`** in env (optional **`NIA_LEGACY_CLI_API_KEY`** for `--api-key`). |
 | `NIA_WINDOWS_USE_PIPX` | No | **Windows only:** set `1` / `true` / `yes` to use **`pipx run nia-mcp-server`** (TryNia docs). Default is **`npx`** + **`NIA_NPX_PACKAGE`** because pipx + Python stdio from Node often crashes. |
 | `NIA_NPX_PACKAGE` | No | **Windows** default npx spec when `NIA_MCP_PACKAGE` is unset. Default `nia-codebase-mcp@latest`. |
+| `NIA_COMMAND` | No | **npx** executable: on Unix, default `npx`. On Windows, command run as `cmd /d /s /c <NIA_COMMAND> -y …` (default `npx`). Use an absolute path if `npx` is not on PATH for the MCP process. |
 | `NIA_LEGACY_CLI_API_KEY` | No | Rare: set to `1` / `true` / `yes` to add `--api-key` for legacy **npx** (key visible in `ps`). Official **`nia-codebase-mcp`** already uses `NIA_API_KEY` from env when the flag is omitted. |
 | `NIA_TOOL_TIMEOUT_MS` | No | Timeout for each Nia tool call (ms). Default `300000`. |
 | `NIA_MCP_CONNECT_TIMEOUT_MS` | No | MCP `initialize` to the Nia child (ms). Default `300000`. Raise if cold `pipx` install is slow. |
@@ -87,7 +88,7 @@ On Windows, the path is **`%USERPROFILE%\.cursor\mcp.json`**.
 |------|-------------|
 | `Missing dist/index.js` | Run `npm run build`. |
 | `NIA_API_KEY` missing | Set it in `.env` next to this package or export it before launching Cursor. |
-| `MCP error -32000: Connection closed` on startup | Install **pipx** and ensure `pipx run nia-mcp-server` works; on Windows see TryNia “Windows Configuration”. Legacy: set `NIA_MCP_PACKAGE` to use npx. |
+| `MCP error -32000: Connection closed` on startup | **Unix:** install **pipx** and ensure `pipx run nia-mcp-server` works. **Windows (default npx):** child runs as `cmd /d /s /c npx -y …`; ensure **Node/npm** is on PATH for Cursor, or set **`NIA_COMMAND`** to your `npx` (full path). Run **`node scripts/probe-nia-spawn.mjs`** in `nia-passthrough-mcp` to see stderr. **Python pipx on Windows:** leave **`NIA_WINDOWS_USE_PIPX`** unset unless pipx works in your setup. |
 | `MCP error -32001: Request timed out` on startup | Often **pipx** still installing on first run (MCP defaults to 60s). This gateway uses **5m** by default; increase `NIA_MCP_CONNECT_TIMEOUT_MS` or run `pipx run --no-cache nia-mcp-server` once to warm the venv. |
 | Python **`OSError: [Errno 22] Invalid argument`** on stdout (pipx / **nia-mcp-server**, Windows) | Common when the Python child speaks MCP over stdio under this Node gateway. **Default fix:** use the Windows **npx** child (do not set `NIA_WINDOWS_USE_PIPX`). Or set **`NIA_MCP_PACKAGE=nia-codebase-mcp@…`**. |
 | Legacy **`NIA_MCP_PACKAGE`** — worried auth is broken without `--api-key` | **`nia-codebase-mcp`** uses **`--api-key` or `NIA_API_KEY`** (either works). This gateway sets **`NIA_API_KEY`** in the child env only. Use **`NIA_LEGACY_CLI_API_KEY=1`** only if you run a fork that ignores env. |
