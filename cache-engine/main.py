@@ -59,7 +59,7 @@ class MetricsResponse(BaseModel):
 
 class CacheEngine:
     EXACT_THRESHOLD = 0.97
-    SEMANTIC_FLOOR  = 0.80
+    SEMANTIC_FLOOR  = 0.70
 
     def __init__(
         self,

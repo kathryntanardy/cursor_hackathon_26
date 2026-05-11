@@ -375,6 +375,84 @@ function failOpenNiaPayload(reason: string): CachedResponse {
   };
 }
 
+function isDemoMode(): boolean {
+  return /^(?:1|true|yes)$/i.test(process.env.DEMO_MODE?.trim() ?? "");
+}
+
+/** Pre-seeded codebase context responses for demo mode — mirrors eval.py SEED_RESPONSES. */
+const DEMO_RESPONSES: Array<{ keywords: string[]; content: string; sources: string[] }> = [
+  {
+    keywords: ["auth", "authentication", "login", "jwt", "token"],
+    content: "Authentication uses JWT tokens. The auth middleware (src/middleware/auth.py) validates Bearer tokens on every protected route. Login is handled by POST /auth/login which calls verify_password() and returns a signed JWT. The token payload includes user_id, email, and role. Tokens expire after 24 hours. AuthService (src/services/auth.py) handles token generation and validation via the python-jose library.",
+    sources: ["src/middleware/auth.py", "src/services/auth.py", "src/routers/auth.py"],
+  },
+  {
+    keywords: ["database", "db", "sql", "orm", "persistence", "sqlalchemy", "postgres"],
+    content: "The database layer uses SQLAlchemy ORM with a PostgreSQL backend. Models are in src/models/ and inherit from Base (src/database.py). DatabaseService provides get_db() as a FastAPI dependency. Connection pooling is handled automatically with pool_size=10. Migrations are managed via Alembic (alembic/versions/). Sessions use context managers to ensure connections are properly closed after each request.",
+    sources: ["src/database.py", "src/models/", "alembic/versions/"],
+  },
+  {
+    keywords: ["route", "routing", "endpoint", "api", "router", "fastapi"],
+    content: "API routes are defined using FastAPI routers in src/routers/. Each module (users.py, items.py, etc.) creates an APIRouter and is registered in src/main.py via app.include_router(). Routes use Pydantic models for request/response validation. HTTP methods follow REST conventions. Route dependencies (auth, pagination) are injected via FastAPI Depends().",
+    sources: ["src/main.py", "src/routers/users.py", "src/routers/items.py"],
+  },
+  {
+    keywords: ["error", "exception", "handling", "failure", "500", "422"],
+    content: "Error handling uses FastAPI exception handlers registered in src/main.py. Custom exception classes in src/exceptions.py extend HTTPException with structured responses. Unhandled exceptions return 500 with a generic message. Pydantic validation errors return 422 with field-level details. ErrorResponse (src/schemas/errors.py) standardises the JSON shape: {code, message, details}. Server errors are logged with full stack traces.",
+    sources: ["src/main.py", "src/exceptions.py", "src/schemas/errors.py"],
+  },
+  {
+    keywords: ["cache", "caching", "chromadb", "semantic", "embedding"],
+    content: "The caching layer uses ChromaDB for semantic lookup and sentence-transformers (all-MiniLM-L6-v2) for embeddings. The CacheEngine class (cache-engine/main.py) manages EXACT_HIT (similarity ≥ 0.97), SEMANTIC_HIT (0.80–0.97 with CLōD verifier), VERIFIED_REJECT, and MISS tiers. Cache keys are SHA-256 hashed query strings. The store persists across restarts via PersistentClient at ./chroma_data.",
+    sources: ["cache-engine/main.py", "CONTRACTS.md"],
+  },
+  {
+    keywords: ["file", "folder", "structure", "directory", "layout", "organization"],
+    content: "The project root contains: src/ (application code), tests/ (pytest suite), alembic/ (migrations), and config/ (environment settings). Inside src/: main.py (FastAPI entry point), routers/ (route handlers), services/ (business logic), models/ (ORM models), schemas/ (Pydantic models), middleware/ (auth, logging, CORS), and utils/ (shared helpers). Static assets are served from src/static/.",
+    sources: ["src/", "src/main.py", "src/routers/", "src/services/"],
+  },
+  {
+    keywords: ["env", "environment", "config", "secret", "variable", "dotenv"],
+    content: "Environment variables are managed via python-dotenv. A .env file at the project root defines DATABASE_URL, SECRET_KEY, CLOD_API_KEY, and other config values. The config module (src/config.py) loads these with Pydantic BaseSettings for type validation and defaults. Sensitive values are never committed — .env is in .gitignore.",
+    sources: ["src/config.py", ".env.example", ".gitignore"],
+  },
+  {
+    keywords: ["test", "testing", "pytest", "unit", "integration", "coverage"],
+    content: "The project uses pytest as the test runner. Tests live in tests/ organised into unit/ and fixtures/. conftest.py sets up an in-memory SQLite test database. Run the suite with: pytest tests/ -v. Coverage is measured with pytest-cov. The CI pipeline runs tests on every PR via GitHub Actions (.github/workflows/test.yml).",
+    sources: ["tests/conftest.py", "tests/unit/", ".github/workflows/test.yml"],
+  },
+  {
+    keywords: ["log", "logging", "trace", "debug", "audit"],
+    content: "The logging system uses Python's standard logging module configured in src/logging_config.py. Log levels are DEBUG in development and INFO in production. The middleware/logging.py adds request_id to every log line for traceability. FastAPI access logs capture method, path, status code, and latency.",
+    sources: ["src/logging_config.py", "src/middleware/logging.py"],
+  },
+  {
+    keywords: ["dashboard", "ui", "webview", "extension", "websocket", "react"],
+    content: "The dashboard is a VS Code/Cursor webview extension (pho-and-gang/src/extension.ts). It renders a React app via CDN with Tailwind CSS. Left panel shows a live query log with color-coded badges (🟢 EXACT_HIT, 🟡 SEMANTIC_HIT, 🔴 VERIFIED_REJECT, ⚫ MISS). Right panel shows animated counter cards: Hit Rate %, $ Saved, Latency Saved, Total Queries. It connects to ws://localhost:8001 for live updates and has a Reset Cache button that POSTs to http://localhost:8000/reset.",
+    sources: ["pho-and-gang/src/extension.ts", "CONTRACTS.md"],
+  },
+  {
+    keywords: ["mcp", "model context protocol", "server", "tool", "cursor agent"],
+    content: "The MCP server (nia-passthrough-mcp/src/index.ts) exposes one tool: lookup_codebase_context(user_query). On every call it: (1) checks the cache via POST http://localhost:8000/lookup, (2) on EXACT_HIT or SEMANTIC_HIT returns the cached response, (3) on MISS or VERIFIED_REJECT forwards to Nia, inserts the result, and returns. It also broadcasts WebSocket events to ws://localhost:8001 after each call.",
+    sources: ["nia-passthrough-mcp/src/index.ts", "CONTRACTS.md"],
+  },
+];
+
+/** Returns rich canned context by matching keywords in the query. */
+function demoMissPayload(user_query: string): CachedResponse {
+  const q = user_query.toLowerCase();
+  for (const entry of DEMO_RESPONSES) {
+    if (entry.keywords.some((kw) => q.includes(kw))) {
+      return { content: entry.content, sources: entry.sources };
+    }
+  }
+  // Generic fallback
+  return {
+    content: `This codebase is a FastAPI + ChromaDB semantic cache layer for Cursor agents. It intercepts lookup_codebase_context calls, checks a vector cache, and only forwards to Nia on cache miss. Query: "${user_query}"`,
+    sources: ["cache-engine/main.py", "nia-passthrough-mcp/src/index.ts", "CONTRACTS.md"],
+  };
+}
+
 async function forwardLookupFromNia(niaClient: Client, user_query: string): Promise<CachedResponse> {
   const niaTimeoutMs = Number.parseInt(process.env.NIA_TOOL_TIMEOUT_MS ?? "300000", 10);
 
@@ -392,7 +470,12 @@ async function forwardLookupFromNia(niaClient: Client, user_query: string): Prom
     return "nia tool reported isError=true";
   }
 
-  let resUnknown = await callNiaTool(NIA_TOOL, { user_query });
+  const niaArgs: Record<string, unknown> = { user_query };
+  const folderId = process.env.NIA_FOLDER_ID?.trim();
+  if (folderId) {
+    niaArgs.local_folders = [folderId];
+  }
+  let resUnknown = await callNiaTool(NIA_TOOL, niaArgs);
   const primaryErr = extractError(resUnknown);
 
   // Fallback: if lookup_codebase_context is not available (Python nia-mcp-server uses `search`),
@@ -504,9 +587,15 @@ function similarityForQueryComplete(status: CacheStatus, similarity: number | nu
 }
 
 async function fetchFromNiaWithFailOpen(
-  niaClient: Client,
+  niaClient: Client | null,
   user_query: string,
 ): Promise<{ out: CachedResponse; niaMs: number; usedFailOpen: boolean }> {
+  // DEMO_MODE=1 → skip Nia entirely, return a canned response that gets cached
+  if (isDemoMode() || niaClient === null) {
+    console.error("[cache-wrapped-nia] DEMO_MODE — returning canned response for MISS");
+    const out = demoMissPayload(user_query);
+    return { out, niaMs: 0, usedFailOpen: false };
+  }
   const tNia = Date.now();
   try {
     const out = await forwardLookupFromNia(niaClient, user_query);
@@ -529,11 +618,16 @@ async function main(): Promise<void> {
   const cacheBase = process.env.CACHE_API_URL ?? "http://localhost:8000";
   const wsPort = Number.parseInt(process.env.WS_PORT ?? "8001", 10);
 
-  const niaClient = await spawnNiaMcpClient();
-
-  console.error("[cache-wrapped-nia] Warmup: measuring average Nia latency (3 calls)...");
-  session.avgNiaLatencyMs = await avgNiaLatencyMs(niaClient);
-  console.error(`[cache-wrapped-nia] AVG_NIA_LATENCY_MS ≈ ${session.avgNiaLatencyMs}`);
+  let niaClient: Client | null = null;
+  if (isDemoMode()) {
+    console.error("[cache-wrapped-nia] DEMO_MODE=1 — skipping Nia subprocess, using canned responses on MISS");
+    session.avgNiaLatencyMs = 2000; // assumed latency for savings display
+  } else {
+    niaClient = await spawnNiaMcpClient();
+    console.error("[cache-wrapped-nia] Warmup: measuring average Nia latency (3 calls)...");
+    session.avgNiaLatencyMs = await avgNiaLatencyMs(niaClient);
+    console.error(`[cache-wrapped-nia] AVG_NIA_LATENCY_MS ≈ ${session.avgNiaLatencyMs}`);
+  }
 
   const wss = new WebSocketServer({ port: wsPort });
   console.error(`[cache-wrapped-nia] WebSocket dashboard on ws://localhost:${wsPort}`);
